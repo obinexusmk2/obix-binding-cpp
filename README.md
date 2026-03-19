@@ -1,5 +1,6 @@
 # @obinexusltd/obix-binding-cpp
 
+<<<<<<< HEAD
 TypeScript bindings for OBIX C++ runtime integration through the libpolycall ABI bridge.
 
 ## Overview
@@ -12,6 +13,16 @@ TypeScript bindings for OBIX C++ runtime integration through the libpolycall ABI
 - Tracking heap allocation state across the binding lifecycle
 - Managing loaded shared libraries (`.so` / `.dll`) via a library registry
 - Resolving schema capabilities per `SchemaMode` (SWIG, RTTI, exception handling)
+=======
+TypeScript bindings for integrating C++ runtimes with the OBIX/libpolycall ABI bridge.
+
+## Features
+
+- Create and manage a C++ binding lifecycle (`initialize`, `invoke`, `destroy`)
+- Structured invocation envelope metadata for ABI calls
+- Basic error objects for uninitialized bindings, missing symbols, and invocation failures
+- Stubs for shared library load/unload operations
+>>>>>>> 178affe084e16599dbfbc136e131a4e209546dd3
 
 ## Installation
 
@@ -19,12 +30,17 @@ TypeScript bindings for OBIX C++ runtime integration through the libpolycall ABI
 npm install @obinexusltd/obix-binding-cpp
 ```
 
+<<<<<<< HEAD
 ## Usage
+=======
+## Quick start
+>>>>>>> 178affe084e16599dbfbc136e131a4e209546dd3
 
 ```ts
 import { createCppBinding } from '@obinexusltd/obix-binding-cpp';
 
 const binding = createCppBinding({
+<<<<<<< HEAD
   ffiPath: '/path/to/libpolycall.so',
   cppStandard: 'c++20',
   schemaMode: 'hybrid',
@@ -32,10 +48,18 @@ const binding = createCppBinding({
   compiler: 'clang',
   swigEnabled: true,
   rttEnabled: true,
+=======
+  ffiPath: '/opt/lib/libpolycall.so',
+  schemaMode: 'polyglot',
+  memoryModel: 'hybrid',
+  cppStandard: 'c++20',
+  compiler: 'clang',
+>>>>>>> 178affe084e16599dbfbc136e131a4e209546dd3
 });
 
 await binding.initialize();
 
+<<<<<<< HEAD
 // Invoke a polyglot function
 const result = await binding.invoke('renderFrame', [width, height]);
 console.log(result);
@@ -131,6 +155,18 @@ Each error includes the full `InvocationEnvelope` for debugging at ABI boundarie
 ## Development
 
 ```bash
+=======
+const result = await binding.invoke('add_numbers', [1, 2]);
+console.log(result);
+
+await binding.destroy();
+```
+
+## Development
+
+```bash
+npm install
+>>>>>>> 178affe084e16599dbfbc136e131a4e209546dd3
 npm run build
 npm test
 ```
