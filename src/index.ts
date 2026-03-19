@@ -4,213 +4,138 @@
  * Connects libpolycall FFI/polyglot bridge to C++ runtime
  */
 
-export type SchemaMode = 'monoglot' | 'polyglot' | 'hybrid';
+// ── Type re-exports ───────────────────────────────────────────────────────────
+export type {
+  SchemaMode,
+  InvocationEnvelope,
+  BindingInvokeError,
+  BindingAbiInvoker,
+  CppStandard,
+  CppCompiler,
+  CppFFIDescriptor,
+  CppBindingConfig,
+  CppBindingBridge,
+  CppHeapStats,
+  HeapTrackerAPI,
+  LoadedLibrary,
+  LibraryRegistryStats,
+  LibraryRegistryAPI,
+  CppSchemaResolverConfig,
+  CppResolvedSchema,
+  CppSchemaResolverAPI,
+  FFITransportConfig,
+  FFITransportAPI,
+} from './types.js';
 
-export interface InvocationEnvelope {
-  functionId: string;
-  args: unknown[];
-  metadata: {
-    schemaMode: SchemaMode;
-    binding: string;
-    timestampMs: number;
-    ffiPath: string;
-  };
-}
+// ── Sub-module factory re-exports ─────────────────────────────────────────────
+export { createFFITransport, normalizeFunctionIdentifier } from './ffi-transport.js';
+export { createHeapTracker } from './heap-tracker.js';
+export { createLibraryRegistry } from './library-registry.js';
+export { createSchemaResolver } from './schema-resolver.js';
 
-export interface BindingInvokeError {
-  code: 'NOT_INITIALIZED' | 'MISSING_SYMBOL' | 'INVOCATION_FAILED';
-  message: string;
-  envelope: InvocationEnvelope;
-  cause?: unknown;
-}
+// ── Imports for the main factory ──────────────────────────────────────────────
+import type {
+  CppBindingBridge,
+  CppBindingConfig,
+  CppHeapStats,
+  LibraryRegistryStats,
+} from './types.js';
+import { createFFITransport, normalizeFunctionIdentifier } from './ffi-transport.js';
+import { createHeapTracker } from './heap-tracker.js';
+import { createLibraryRegistry } from './library-registry.js';
+import { createSchemaResolver } from './schema-resolver.js';
 
-export interface BindingAbiInvoker {
-  invoke(envelopeJson: string): unknown | Promise<unknown>;
-}
-
-function normalizeFunctionIdentifier(fn: string | object): string | undefined {
-  if (typeof fn === 'string' && fn.trim()) return fn;
-  if (fn && typeof fn === 'object') {
-    const descriptor = fn as { functionId?: string; id?: string; name?: string };
-    return descriptor.functionId ?? descriptor.id ?? descriptor.name;
-  }
-  return undefined;
-}
-
-/**
- * FFI descriptor for C++ runtime
- * Defines how C++ interops with libpolycall
- */
-export interface CppFFIDescriptor {
-  ffiPath: string;
-  cppStandard: 'c++11' | 'c++14' | 'c++17' | 'c++20';
-  compiler: 'gcc' | 'clang' | 'msvc';
-  swig: {
-    enabled: boolean;
-    targetLanguages?: string[];
-  };
-}
-
-/**
- * Configuration for C++ binding
- * Specifies how libpolycall connects to C++ runtime
- */
-export interface CppBindingConfig {
-  ffiPath: string;
-  cppStandard?: 'c++11' | 'c++14' | 'c++17' | 'c++20';
-  schemaMode: SchemaMode;
-  memoryModel: 'gc' | 'manual' | 'hybrid';
-  compiler?: 'gcc' | 'clang' | 'msvc';
-  swigEnabled?: boolean;
-  smartPointerPolicy?: 'shared_ptr' | 'unique_ptr' | 'raw';
-  exceptionHandling?: boolean;
-  rttEnabled?: boolean;
-  ffiDescriptor?: CppFFIDescriptor;
-}
-
-/**
- * Bridge interface for C++ runtime
- * Methods to invoke polyglot functions and manage runtime state
- */
-export interface CppBindingBridge {
-  /**
-   * Initialize the binding and connect to libpolycall
-   */
-  initialize(): Promise<void>;
-
-  /**
-   * Invoke a polyglot function through libpolycall
-   * @param fn Function name or descriptor
-   * @param args Arguments to pass to function
-   * @returns Result from polyglot function
-   */
-  invoke(fn: string | object, args: unknown[]): Promise<unknown>;
-
-  /**
-   * Clean up resources and disconnect from libpolycall
-   */
-  destroy(): Promise<void>;
-
-  /**
-   * Get current memory usage of the binding
-   * @returns Memory usage statistics
-   */
-  getMemoryUsage(): {
-    heapBytes: number;
-    stackBytes: number;
-    staticBytes: number;
-    externalMemoryBytes: number;
-  };
-
-  /**
-   * Get schema mode of current binding
-   */
-  getSchemaMode(): SchemaMode;
-
-  /**
-   * Check if binding is initialized and ready
-   */
-  isInitialized(): boolean;
-
-  /**
-   * Load a C++ shared library or DLL
-   */
-  loadLibrary(libPath: string): Promise<void>;
-
-  /**
-   * Unload a C++ shared library
-   */
-  unloadLibrary(libPath: string): Promise<void>;
-}
+// ── Main factory ──────────────────────────────────────────────────────────────
 
 /**
  * Create a C++ binding to libpolycall
  * @param config Configuration for the binding
- * @returns Initialized bridge for invoking polyglot functions
+ * @returns Bridge for invoking polyglot functions and managing C++ runtime state
  */
 export function createCppBinding(config: CppBindingConfig): CppBindingBridge {
   let initialized = false;
-  const abiBindingName = 'cpp';
-  return {
+  const ABI_BINDING_NAME = 'cpp';
+
+  const ffiTransport = createFFITransport({
+    ffiPath: config.ffiPath,
+    schemaMode: config.schemaMode,
+    bindingName: ABI_BINDING_NAME,
+  });
+
+  const heapTracker = createHeapTracker();
+
+  const libraryRegistry = createLibraryRegistry();
+
+  const schemaResolver = createSchemaResolver({
+    schemaMode: config.schemaMode,
+    cppStandard: config.cppStandard ?? config.ffiDescriptor?.cppStandard,
+    compiler: config.compiler ?? config.ffiDescriptor?.compiler,
+  });
+
+  const bridge: CppBindingBridge = {
     async initialize(): Promise<void> {
       if (typeof config.ffiPath !== 'string' || config.ffiPath.trim().length === 0) {
         throw new Error(`Invalid ffiPath: ${config.ffiPath}`);
+      }
+      if (!schemaResolver.validate(config.schemaMode)) {
+        throw new Error(`Invalid schemaMode: ${config.schemaMode}`);
       }
       initialized = true;
     },
 
     async invoke(fn: string | object, args: unknown[]): Promise<unknown> {
       const functionId = normalizeFunctionIdentifier(fn);
-      const envelope: InvocationEnvelope = {
-        functionId: functionId ?? '<unknown>',
-        args,
-        metadata: {
-          schemaMode: config.schemaMode,
-          binding: abiBindingName,
-          timestampMs: Date.now(),
-          ffiPath: config.ffiPath,
-        },
-      };
+      const envelope = ffiTransport.buildEnvelope(functionId ?? '<unknown>', args);
 
       if (!initialized) {
-        return { code: 'NOT_INITIALIZED', message: 'Binding is not initialized', envelope } satisfies BindingInvokeError;
+        return { code: 'NOT_INITIALIZED', message: 'Binding is not initialized', envelope };
       }
-
       if (!functionId) {
-        return { code: 'MISSING_SYMBOL', message: 'Function identifier was not provided', envelope } satisfies BindingInvokeError;
+        return { code: 'MISSING_SYMBOL', message: 'Function identifier was not provided', envelope };
       }
 
-      const abiInvoker = (globalThis as typeof globalThis & { __obixAbiInvoker?: BindingAbiInvoker }).__obixAbiInvoker;
-      if (!abiInvoker?.invoke) {
-        return {
-          code: 'MISSING_SYMBOL',
-          message: 'Required ABI symbol __obixAbiInvoker.invoke is unavailable',
-          envelope,
-        } satisfies BindingInvokeError;
-      }
-
-      try {
-        return await abiInvoker.invoke(JSON.stringify(envelope));
-      } catch (cause) {
-        return {
-          code: 'INVOCATION_FAILED',
-          message: 'Invocation failed at ABI boundary',
-          envelope,
-          cause,
-        } satisfies BindingInvokeError;
-      }
+      return ffiTransport.dispatch(envelope);
     },
 
     async destroy(): Promise<void> {
+      heapTracker.destroy();
+      libraryRegistry.destroy();
+      ffiTransport.destroy();
+      schemaResolver.destroy();
       initialized = false;
     },
 
-    getMemoryUsage() {
-      return {
-        heapBytes: 0,
-        stackBytes: 0,
-        staticBytes: 0,
-        externalMemoryBytes: 0,
-      };
+    getMemoryUsage(): CppHeapStats {
+      return heapTracker.snapshot();
     },
 
-    getSchemaMode(): SchemaMode {
-      return config.schemaMode;
+    getSchemaMode() {
+      return schemaResolver.getMode();
     },
 
     isInitialized(): boolean {
       return initialized;
     },
 
-    async loadLibrary(libPath: string): Promise<void> {
-      // Stub implementation
-      console.log('Loading C++ library:', libPath);
+    async loadLibrary(path: string): Promise<void> {
+      if (!initialized) return;
+      libraryRegistry.load(path);
     },
 
-    async unloadLibrary(libPath: string): Promise<void> {
-      // Stub implementation
-      console.log('Unloading C++ library:', libPath);
+    async unloadLibrary(path: string): Promise<void> {
+      if (!initialized) return;
+      libraryRegistry.unload(path);
     },
+
+    getLibraryStats(): LibraryRegistryStats {
+      return libraryRegistry.getStats();
+    },
+
+    get ffiTransport() { return ffiTransport; },
+    get heapTracker() { return heapTracker; },
+    get libraryRegistry() { return libraryRegistry; },
+    get schemaResolver() { return schemaResolver; },
   };
-}
 
+  return bridge;
+}
