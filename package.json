@@ -22,5 +22,8 @@
   "author": "OBINexus <okpalan@protonmail.com>",
   "publishConfig": {
     "access": "public"
+  },
+  "devDependencies": {
+    "typescript": "~5.4.0"
   }
 }
