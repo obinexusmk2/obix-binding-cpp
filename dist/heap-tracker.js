@@ -29,7 +29,6 @@ export function createHeapTracker() {
             heapBytes = 0;
             allocCount = 0;
             freeCount = 0;
-            // peakHeapBytes preserved — tracks lifetime peak
         },
         destroy() {
             api.reset();

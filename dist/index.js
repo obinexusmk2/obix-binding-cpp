@@ -1,9 +1,3 @@
-/**
- * OBIX C++ Binding
- * Legacy system integration, embedded targets
- * Connects libpolycall FFI/polyglot bridge to C++ runtime
- */
-// ── Sub-module factory re-exports ─────────────────────────────────────────────
 export { createFFITransport, normalizeFunctionIdentifier } from './ffi-transport.js';
 export { createHeapTracker } from './heap-tracker.js';
 export { createLibraryRegistry } from './library-registry.js';
@@ -12,12 +6,6 @@ import { createFFITransport, normalizeFunctionIdentifier } from './ffi-transport
 import { createHeapTracker } from './heap-tracker.js';
 import { createLibraryRegistry } from './library-registry.js';
 import { createSchemaResolver } from './schema-resolver.js';
-// ── Main factory ──────────────────────────────────────────────────────────────
-/**
- * Create a C++ binding to libpolycall
- * @param config Configuration for the binding
- * @returns Bridge for invoking polyglot functions and managing C++ runtime state
- */
 export function createCppBinding(config) {
     let initialized = false;
     const ABI_BINDING_NAME = 'cpp';

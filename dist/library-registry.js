@@ -5,7 +5,7 @@ export function createLibraryRegistry() {
     const api = {
         load(path) {
             if (libraries.has(path))
-                return; // idempotent
+                return;
             libraries.set(path, {
                 path,
                 loadedAtMs: Date.now(),
@@ -15,7 +15,7 @@ export function createLibraryRegistry() {
         },
         unload(path) {
             if (!libraries.has(path))
-                return; // idempotent
+                return;
             libraries.delete(path);
             totalUnloaded++;
         },
